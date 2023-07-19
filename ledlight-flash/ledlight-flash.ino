@@ -41,11 +41,14 @@ bool shouldWater(int h, int m, int s) {
   int startEpoch = hourToWater * 3600 + minuteToWater * 60;
   int endEpoch = startEpoch + wateringSeconds;
   int currEpoch = h * 3600 + m * 60 + s;
+  if(endEpoch > currEpoch) {
+    return false;
+  }
   double totalDisplaced = (currEpoch - startEpoch) * throughput;
   Serial.print("Displaced: ");
   Serial.print(totalDisplaced);
   Serial.println("Mililiters.");
-  return currEpoch < endEpoch;
+  return true;
 }
 
 void setIdle() {

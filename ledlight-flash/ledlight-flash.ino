@@ -75,8 +75,6 @@ void printLocalTime()
   int h = timeInfo->tm_hour;
   int m = timeInfo->tm_min;
   int s = timeInfo->tm_sec;
-  Serial.println(h);
-  Serial.println(m);
 
   if(shouldWater(h, m, s)) {
     setWatering();
@@ -116,6 +114,7 @@ void readRemoteConfig() {
         hourToWater = myObject["hour"];
         minuteToWater = myObject["minute"];
         waterToDisplace = myObject["water_amount"];
+        Serial.print("Pulled new data:");
         Serial.println(hourToWater);
         Serial.println(minuteToWater);
         Serial.println(waterToDisplace);

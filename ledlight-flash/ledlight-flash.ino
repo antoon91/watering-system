@@ -8,16 +8,17 @@ const char* password   = WIFI_PASSWD;
 
 // ledPin refers to ESP32-CAM GPIO 4 (flashlight)
 #define FLASH_GPIO_NUM 4
+#define ONBOARD_LED  2
 
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 3600;
 const int   daylightOffset_sec = 3600;
 
 // when to start watering
-const int   hourToWater = 12;
-const int   minuteToWater = 00;
-// in milliters
-const double waterToDisplace = 1600;
+const int   hourToWater = 18;//12;
+const int   minuteToWater = 44;//00;
+// in milliters (two pumps)
+const double waterToDisplace = 800;
 // x mililiter per second, the system displaces 1 liter every 75 seconds.
 const double throughput = 1000 / 75;
 
@@ -42,10 +43,12 @@ bool shouldWater(int h, int m, int s) {
 
 void setIdle() {
   Serial.println("Idle...");
+  digitalWrite(ONBOARD_LED,LOW);
   digitalWrite(FLASH_GPIO_NUM, HIGH);
 }
 void setWatering() {
   Serial.println("Watering...");
+  digitalWrite(ONBOARD_LED,HIGH);
   digitalWrite(FLASH_GPIO_NUM, LOW);
 }
 
@@ -75,6 +78,7 @@ void printLocalTime()
 void setup()
 {
   Serial.begin(115200);
+  pinMode(ONBOARD_LED,OUTPUT);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
       delay(500);

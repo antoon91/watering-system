@@ -22,10 +22,10 @@ unsigned long lastPullTime = 0;
 unsigned long pullTimerDelay = 5000;
 
 // when to start watering
-const int   hourToWater = 18;//12;
-const int   minuteToWater = 44;//00;
+int   hourToWater = 18;//12;
+int   minuteToWater = 44;//00;
 // in milliters (two pumps)
-const double waterToDisplace = 800;
+double waterToDisplace = 800;
 // x mililiter per second, the system displaces 1 liter every 75 seconds.
 const double throughput = 1000 / 75;
 
@@ -91,7 +91,6 @@ void readRemoteConfig() {
       
       // Your Domain name with URL path or IP address with path
       http.begin(configFileLocation.c_str());
-      
       // If you need Node-RED/server authentication, insert user and password below
       //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
       
@@ -102,14 +101,27 @@ void readRemoteConfig() {
         Serial.print("HTTP Response code: ");
         Serial.println(httpResponseCode);
         String payload = http.getString();
-        JSONVar myObject = JSON.parse(payload);
         Serial.println(payload);
+        JSONVar myObject = JSON.parse(payload);
+        if (JSON.typeof(myObject) == "undefined") {
+          Serial.println("Parsing input failed!");
+          http.clearAllCookies();
+          http.end();
+          return;
+        }
+        hourToWater = myObject["hour"];
+        minuteToWater = myObject["minute"];
+        waterToDisplace = myObject["water_amount"];
+        Serial.println(hourToWater);
+        Serial.println(minuteToWater);
+        Serial.println(waterToDisplace);
       }
       else {
         Serial.print("Error code: ");
         Serial.println(httpResponseCode);
       }
       // Free resources
+      http.clearAllCookies();
       http.end();
     }
     else {

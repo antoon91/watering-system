@@ -2,6 +2,8 @@
 #include <WiFi.h>
 #include "time.h"
 #include "credentials.h"
+#include <HTTPClient.h>
+#include <Arduino_JSON.h>
 
 const char* ssid       = WIFI_SSID;
 const char* password   = WIFI_PASSWD;
@@ -13,6 +15,11 @@ const char* password   = WIFI_PASSWD;
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 3600;
 const int   daylightOffset_sec = 3600;
+
+String configFileLocation = "https://raw.githubusercontent.com/antoon91/watering-system/main/ledlight-flash/config";
+unsigned long lastPullTime = 0;
+// Set timer to 5 seconds (5000)
+unsigned long pullTimerDelay = 5000;
 
 // when to start watering
 const int   hourToWater = 18;//12;
@@ -75,6 +82,43 @@ void printLocalTime()
   }
 }
 
+void readRemoteConfig() {
+  //Send an HTTP POST request every 10 minutes
+  if ((millis() - lastPullTime) > pullTimerDelay) {
+    //Check WiFi connection status
+    if(WiFi.status() == WL_CONNECTED){
+      HTTPClient http;
+      
+      // Your Domain name with URL path or IP address with path
+      http.begin(configFileLocation.c_str());
+      
+      // If you need Node-RED/server authentication, insert user and password below
+      //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
+      
+      // Send HTTP GET request
+      int httpResponseCode = http.GET();
+      
+      if (httpResponseCode == 200) {
+        Serial.print("HTTP Response code: ");
+        Serial.println(httpResponseCode);
+        String payload = http.getString();
+        JSONVar myObject = JSON.parse(payload);
+        Serial.println(payload);
+      }
+      else {
+        Serial.print("Error code: ");
+        Serial.println(httpResponseCode);
+      }
+      // Free resources
+      http.end();
+    }
+    else {
+      Serial.println("WiFi Disconnected");
+    }
+    lastPullTime = millis();
+  }
+}
+
 void setup()
 {
   Serial.begin(115200);
@@ -93,8 +137,8 @@ void setup()
   setIdle();
   //disconnect WiFi as it's no longer needed
   delay(10 * 1000);
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_OFF);
+  // WiFi.disconnect(true);
+  // WiFi.mode(WIFI_OFF);
 
   Serial.println("Starting....");
 }
@@ -102,4 +146,5 @@ void setup()
 void loop() {
   delay(1000);
   printLocalTime();
+  readRemoteConfig();
 }

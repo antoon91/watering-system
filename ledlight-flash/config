@@ -1,4 +1,6 @@
-HOUR=12
-MINUTE=00
-WATER_AMOUNT=800
+{ 
+"hour":12,
+"minute":00,
+"water_amount":800
+}
 

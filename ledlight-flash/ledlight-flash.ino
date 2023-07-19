@@ -19,11 +19,11 @@ const int   daylightOffset_sec = 3600;
 String configFileLocation = "https://raw.githubusercontent.com/antoon91/watering-system/main/ledlight-flash/config";
 unsigned long lastPullTime = 0;
 // Set timer to 5 seconds (5000)
-unsigned long pullTimerDelay = 5000;
+unsigned long pullTimerDelay = 30 * 60 * 1000;
 
 // when to start watering
-int   hourToWater = 18;//12;
-int   minuteToWater = 44;//00;
+int   hourToWater = 12;
+int   minuteToWater = 00;
 // in milliters (two pumps)
 double waterToDisplace = 800;
 // x mililiter per second, the system displaces 1 liter every 75 seconds.
@@ -88,6 +88,7 @@ void printLocalTime()
 void readRemoteConfig() {
   //Send an HTTP POST request every 10 minutes
   if ((millis() - lastPullTime) > pullTimerDelay) {
+    connectToWifi();
     //Check WiFi connection status
     if(WiFi.status() == WL_CONNECTED){
       HTTPClient http;
@@ -122,6 +123,7 @@ void readRemoteConfig() {
       else {
         Serial.print("Error code: ");
         Serial.println(httpResponseCode);
+        disconnectWifi();
       }
       // Free resources
       http.clearAllCookies();
@@ -131,19 +133,29 @@ void readRemoteConfig() {
       Serial.println("WiFi Disconnected");
     }
     lastPullTime = millis();
+    disconnectWifi();
   }
 }
-
-void setup()
-{
-  Serial.begin(115200);
-  pinMode(ONBOARD_LED,OUTPUT);
+void connectToWifi() {
+  digitalWrite(ONBOARD_LED, HIGH);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
       delay(500);
       Serial.print(".");
   }
   Serial.println(" CONNECTED");
+}
+void disconnectWifi() {
+  digitalWrite(ONBOARD_LED, LOW);
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  Serial.println("DISCONNECTED");
+}
+void setup()
+{
+  Serial.begin(115200);
+  pinMode(ONBOARD_LED,OUTPUT);
+  connectToWifi();
   //init and get the time
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
@@ -152,8 +164,7 @@ void setup()
   setIdle();
   //disconnect WiFi as it's no longer needed
   delay(10 * 1000);
-  // WiFi.disconnect(true);
-  // WiFi.mode(WIFI_OFF);
+  disconnectWifi();
 
   Serial.println("Starting....");
 }

@@ -6,7 +6,7 @@ class RemoteConfiguration {
     private:
         unsigned long lastPullTime = 0;
         // Set timer to 5 seconds (5000)
-        unsigned long pullTimerDelay = 30 * 60 * 1000;
+        unsigned long pullTimerDelay = 1 * 60 * 1000;
         // when to start watering
         int hourToWater = 12;
         int minuteToWater = 00;

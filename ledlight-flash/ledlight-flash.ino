@@ -4,7 +4,7 @@
 #include "credentials.h"
 #include <HTTPClient.h>
 #include <Arduino_JSON.h>
-
+#include "OTA.h"
 const char* ssid       = WIFI_SSID;
 const char* password   = WIFI_PASSWD;
 
@@ -12,6 +12,7 @@ const char* password   = WIFI_PASSWD;
 #define FLASH_GPIO_NUM 4
 #define ONBOARD_LED  2
 
+// for updating local time from the web.
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 3600;
 const int   daylightOffset_sec = 3600;
@@ -28,6 +29,8 @@ int   minuteToWater = 00;
 double waterToDisplace = 800;
 // x mililiter per second, the system displaces 1 liter every 75 seconds.
 const double throughput = 1000 / 75;
+
+OTA ota;
 
 bool shouldWater(int h, int m, int s) {
   // Too early
@@ -86,53 +89,45 @@ void printLocalTime()
 void readRemoteConfig() {
   //Send an HTTP POST request every 10 minutes
   if ((millis() - lastPullTime) > pullTimerDelay) {
-    connectToWifi();
-    //Check WiFi connection status
-    if(WiFi.status() == WL_CONNECTED){
-      HTTPClient http;
+    HTTPClient http;
       
-      // Your Domain name with URL path or IP address with path
-      http.begin(configFileLocation.c_str());
-      // If you need Node-RED/server authentication, insert user and password below
-      //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
-      
-      // Send HTTP GET request
-      int httpResponseCode = http.GET();
-      
-      if (httpResponseCode == 200) {
-        Serial.print("HTTP Response code: ");
-        Serial.println(httpResponseCode);
-        String payload = http.getString();
-        Serial.println(payload);
-        JSONVar myObject = JSON.parse(payload);
-        if (JSON.typeof(myObject) == "undefined") {
-          Serial.println("Parsing input failed!");
-          http.clearAllCookies();
-          http.end();
-          return;
-        }
-        hourToWater = myObject["hour"];
-        minuteToWater = myObject["minute"];
-        waterToDisplace = myObject["water_amount"];
-        Serial.print("Pulled new data:");
-        Serial.println(hourToWater);
-        Serial.println(minuteToWater);
-        Serial.println(waterToDisplace);
+    // Your Domain name with URL path or IP address with path
+    http.begin(configFileLocation.c_str());
+    // If you need Node-RED/server authentication, insert user and password below
+    //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
+    
+    // Send HTTP GET request
+    int httpResponseCode = http.GET();
+    
+    if (httpResponseCode == 200) {
+      Serial.print("HTTP Response code: ");
+      Serial.println(httpResponseCode);
+      String payload = http.getString();
+      Serial.println(payload);
+      JSONVar myObject = JSON.parse(payload);
+      if (JSON.typeof(myObject) == "undefined") {
+        Serial.println("Parsing input failed!");
+        http.clearAllCookies();
+        http.end();
+        return;
       }
-      else {
-        Serial.print("Error code: ");
-        Serial.println(httpResponseCode);
-        disconnectWifi();
-      }
-      // Free resources
-      http.clearAllCookies();
-      http.end();
+      hourToWater = myObject["hour"];
+      minuteToWater = myObject["minute"];
+      waterToDisplace = myObject["water_amount"];
+      Serial.print("Pulled new data:");
+      Serial.println(hourToWater);
+      Serial.println(minuteToWater);
+      Serial.println(waterToDisplace);
     }
     else {
-      Serial.println("WiFi Disconnected");
+      Serial.print("Error code: ");
+      Serial.println(httpResponseCode);
     }
+    // Free resources
+    http.clearAllCookies();
+    http.end();
+
     lastPullTime = millis();
-    disconnectWifi();
   }
 }
 void connectToWifi() {
@@ -157,18 +152,18 @@ void setup()
   connectToWifi();
   //init and get the time
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-
+  ota.startServer();
   // initialize digital pin ledPin as an output
   pinMode(FLASH_GPIO_NUM, OUTPUT);
   setIdle();
   //disconnect WiFi as it's no longer needed
   delay(10 * 1000);
-  disconnectWifi();
 
   Serial.println("Starting....");
 }
 
 void loop() {
+  ota.handleRequests();
   delay(1000);
   printLocalTime();
   readRemoteConfig();

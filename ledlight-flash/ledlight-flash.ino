@@ -2,9 +2,9 @@
 #include <WiFi.h>
 #include "time.h"
 #include "credentials.h"
-#include <HTTPClient.h>
-#include <Arduino_JSON.h>
 #include "OTA.h"
+#include "RemoteConfiguration.h"
+
 const char* ssid       = WIFI_SSID;
 const char* password   = WIFI_PASSWD;
 
@@ -17,37 +17,23 @@ const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 3600;
 const int   daylightOffset_sec = 3600;
 
-String configFileLocation = "https://raw.githubusercontent.com/antoon91/watering-system/main/ledlight-flash/config";
-unsigned long lastPullTime = 0;
-// Set timer to 5 seconds (5000)
-unsigned long pullTimerDelay = 30 * 60 * 1000;
-
-// when to start watering
-int   hourToWater = 12;
-int   minuteToWater = 00;
-// in milliters (two pumps)
-double waterToDisplace = 800;
-// x mililiter per second, the system displaces 1 liter every 75 seconds.
-const double throughput = 1000 / 75;
-
 OTA ota;
-
+RemoteConfiguration rc;
 bool shouldWater(int h, int m, int s) {
   // Too early
-  if(h < hourToWater) {
+  if(h < rc.getHourToWater()) {
     return false;
   }
-  if(h == hourToWater && m < minuteToWater) {
+  if(h == rc.getHourToWater() && m < rc.getMinuteToWater()) {
     return false;
   }
-  double wateringSeconds = (double)waterToDisplace / throughput;
-  int startEpoch = hourToWater * 3600 + minuteToWater * 60;
-  int endEpoch = startEpoch + wateringSeconds;
+  int startEpoch = rc.getHourToWater() * 3600 + rc.getMinuteToWater() * 60;
+  int endEpoch = startEpoch + rc.getWateringSeconds();
   int currEpoch = h * 3600 + m * 60 + s;
   if(currEpoch >= endEpoch) {
     return false;
   }
-  double totalDisplaced = (currEpoch - startEpoch) * throughput;
+  double totalDisplaced = (currEpoch - startEpoch) * rc.getThroughput();
   Serial.print("Displaced: ");
   Serial.print(totalDisplaced);
   Serial.println("Mililiters.");
@@ -86,50 +72,6 @@ void printLocalTime()
   }
 }
 
-void readRemoteConfig() {
-  //Send an HTTP POST request every 10 minutes
-  if ((millis() - lastPullTime) > pullTimerDelay) {
-    HTTPClient http;
-      
-    // Your Domain name with URL path or IP address with path
-    http.begin(configFileLocation.c_str());
-    // If you need Node-RED/server authentication, insert user and password below
-    //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
-    
-    // Send HTTP GET request
-    int httpResponseCode = http.GET();
-    
-    if (httpResponseCode == 200) {
-      Serial.print("HTTP Response code: ");
-      Serial.println(httpResponseCode);
-      String payload = http.getString();
-      Serial.println(payload);
-      JSONVar myObject = JSON.parse(payload);
-      if (JSON.typeof(myObject) == "undefined") {
-        Serial.println("Parsing input failed!");
-        http.clearAllCookies();
-        http.end();
-        return;
-      }
-      hourToWater = myObject["hour"];
-      minuteToWater = myObject["minute"];
-      waterToDisplace = myObject["water_amount"];
-      Serial.print("Pulled new data:");
-      Serial.println(hourToWater);
-      Serial.println(minuteToWater);
-      Serial.println(waterToDisplace);
-    }
-    else {
-      Serial.print("Error code: ");
-      Serial.println(httpResponseCode);
-    }
-    // Free resources
-    http.clearAllCookies();
-    http.end();
-
-    lastPullTime = millis();
-  }
-}
 void connectToWifi() {
   digitalWrite(ONBOARD_LED, HIGH);
   WiFi.begin(ssid, password);
@@ -166,5 +108,5 @@ void loop() {
   ota.handleRequests();
   delay(1000);
   printLocalTime();
-  readRemoteConfig();
+  rc.refresh();
 }
